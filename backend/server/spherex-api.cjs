@@ -266,7 +266,7 @@ function imageToPng(image) {
   const stretchMax = Math.asinh(range / stretchScale);
   const png = new PNG({ width: image.width, height: image.height });
   for (let index = 0; index < image.values.length; index++) {
-    const normalized = Math.max(0, Math.min(Math.asinh(Math.max(0, image.values[index] - low) / stretchScale) / stretchMax));
+    const normalized = Math.max(0, Math.min(1, Math.asinh(Math.max(0, image.values[index] - low) / stretchScale) / stretchMax));
     const value = Math.round(normalized * 255);
     const pixel = index * 4;
     png.data[pixel] = Math.round(value * 0.72);
@@ -286,7 +286,7 @@ async function fetchPreview(record, ra, dec, size) {
     response = await axios.get(cutoutUrl(record, ra, dec, size), { responseType: 'arraybuffer', timeout: UPSTREAM_TIMEOUT_MS, maxContentLength: 25 * 1024 * 1024 });
   } catch (error) {
     // SIA returns products whose footprint intersects the search circle. An
-    // edge product can reject a cutout at the user's exact point;
+    // edge product can therefore reject a cutout at the user's exact point;
     // use the real product center for a useful preview rather than hiding the
     // observation from a temporal comparison. Raw /cutout remains exact.
     if (error.response?.status !== 422 || !Number.isFinite(record.ra) || !Number.isFinite(record.dec)) throw error;
