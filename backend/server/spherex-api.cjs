@@ -12,6 +12,11 @@ const spatialIndex = JSON.parse(fs.readFileSync('./spherex-spatial-index.json'))
  * Fetch observations for a sky region
  * Query params: ra, dec, radius (degrees), band
  */
+/**
+ * GET /api/spherex/observations
+ * Fetch observations for a sky region
+ * Query params: ra, dec, radius (degrees), band
+ */
 router.get('/observations', (req, res) => {
   const { ra, dec, radius = 2, band = 'SPHEREx-D2' } = req.query;
   const ra_f = parseFloat(ra);
@@ -22,23 +27,23 @@ router.get('/observations', (req, res) => {
     return res.status(400).json({ error: 'Invalid RA/Dec' });
   }
 
-  // Get observations within radius using spatial index
+  const dec_rad = (dec_f * Math.PI) / 180;
   const nearbyObs = [];
-  for (let di = -1; di <= 1; di++) {
-    for (let dj = -1; dj <= 1; dj++) {
-      const gridKey = `${Math.floor(ra_f / 10) + di}_${Math.floor(dec_f / 10) + dj}`;
-      const gridObs = spatialIndex[gridKey] || [];
-      
-      gridObs.forEach(obs => {
-        const distance = Math.sqrt((obs.ra - ra_f) ** 2 + (obs.dec - dec_f) ** 2);
-        if (distance <= radius_f && obs.wavelength_band === band) {
-          nearbyObs.push({ ...obs, distance });
-        }
-      });
-    }
-  }
 
-  // Sort by distance and return top 100
+  // Direct scan over the 427 catalog items
+  catalog.forEach(obs => {
+    // Angular distance approximation with cos(dec) correction
+    const dRA = (obs.ra - ra_f) * Math.cos(dec_rad);
+    const dDec = obs.dec - dec_f;
+    const distance = Math.sqrt(dRA * dRA + dDec * dDec);
+
+    const matchesBand = !band || obs.wavelength_band?.toLowerCase() === band.toLowerCase();
+
+    if (distance <= radius_f && matchesBand) {
+      nearbyObs.push({ ...obs, distance });
+    }
+  });
+
   nearbyObs.sort((a, b) => a.distance - b.distance);
   res.json(nearbyObs.slice(0, 100));
 });
